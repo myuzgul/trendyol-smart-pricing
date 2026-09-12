@@ -31,6 +31,55 @@ export interface Product {
   variants: ProductVariant[];
 }
 
+// Perde Sihirbazı Tipleri
+export interface CurtainSizeInput {
+  width: number;
+  height: number;
+}
+
+export interface CurtainCalculateBatchRequest {
+  category_type: 'tul' | 'stor_zebra' | 'fon' | 'karartma_saten';
+  unit_price: number;
+  pleat_type?: 'pilesiz' | '1x2' | '1x2.5' | '1x3';
+  panel_type?: 'tek_kanat' | 'cift_kanat';
+  has_skirt?: boolean;
+  skirt_m2_extra?: number;
+  has_bead?: boolean;
+  bead_m2_extra?: number;
+  cargo_cost?: number;
+  commission_rate?: number;
+  target_profit_margin?: number;
+  round_to_90?: boolean;
+  sizes: CurtainSizeInput[];
+}
+
+export interface CurtainCalculateItemResult {
+  width_cm: number;
+  height_cm: number;
+  size_label: string;
+  calculated_quantity_or_m2: number;
+  fabric_cost: number;
+  direct_cost: number;
+  total_cost: number;
+  sale_price: number;
+  min_price: number;
+  commission_amount: number;
+  net_income: number;
+  net_profit: number;
+  profit_margin_pct: number;
+}
+
+export interface CreateCurtainProductRequest {
+  title: string;
+  brand: string;
+  category_name: string;
+  model_code: string;
+  image_url?: string;
+  description?: string;
+  variants: any[];
+}
+
+// Toplu Fiyatlandırma Tipleri
 export interface BulkAdjustmentRequest {
   scope: 'all' | 'category' | 'selected';
   category_name?: string;

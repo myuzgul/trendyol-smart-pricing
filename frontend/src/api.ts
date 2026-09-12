@@ -4,7 +4,10 @@ import {
   BulkAdjustmentItemPreview,
   BuyboxItem,
   PriceLog,
-  SellerSettings
+  SellerSettings,
+  CurtainCalculateBatchRequest,
+  CurtainCalculateItemResult,
+  CreateCurtainProductRequest
 } from './types';
 
 const BASE_URL = 'http://127.0.0.1:8000/api';
@@ -34,7 +37,7 @@ export const api = {
     return res.json();
   },
 
-  // Products
+  // Products & Curtain Wizard
   getProducts: async (): Promise<Product[]> => {
     const res = await fetch(`${BASE_URL}/products`);
     if (!res.ok) throw new Error('Ürünler alınamadı');
@@ -43,6 +46,27 @@ export const api = {
   syncProducts: async (): Promise<{ status: string; message: string }> => {
     const res = await fetch(`${BASE_URL}/products/sync`, { method: 'POST' });
     if (!res.ok) throw new Error('Senkronizasyon başarısız');
+    return res.json();
+  },
+  calculateCurtainSizes: async (data: CurtainCalculateBatchRequest): Promise<CurtainCalculateItemResult[]> => {
+    const res = await fetch(`${BASE_URL}/products/calculate-curtain`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Perde hesaplaması yapılamadı');
+    return res.json();
+  },
+  createProductWithVariants: async (data: CreateCurtainProductRequest): Promise<any> => {
+    const res = await fetch(`${BASE_URL}/products/create-with-variants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Ürün oluşturulamadı');
+    }
     return res.json();
   },
 

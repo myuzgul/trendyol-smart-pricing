@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import datetime
 
 class VariantBase(BaseModel):
@@ -41,17 +41,59 @@ class ProductResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Toplu Fiyat Ayarlama Talebi
+# Perde Hesaplama Şemaları
+class CurtainSizeInput(BaseModel):
+    width: float
+    height: float
+
+class CurtainCalculateBatchRequest(BaseModel):
+    category_type: str # "tul", "stor_zebra", "fon", "karartma_saten"
+    unit_price: float # Metre veya M² fiyatı
+    pleat_type: Optional[str] = "1x2.5" # "pilesiz", "1x2", "1x2.5", "1x3"
+    panel_type: Optional[str] = "tek_kanat" # "tek_kanat", "cift_kanat"
+    has_skirt: Optional[bool] = False
+    skirt_m2_extra: Optional[float] = 50.0
+    has_bead: Optional[bool] = False
+    bead_m2_extra: Optional[float] = 50.0
+    cargo_cost: Optional[float] = 45.0
+    commission_rate: Optional[float] = 0.20
+    target_profit_margin: Optional[float] = 0.25
+    round_to_90: Optional[bool] = True
+    sizes: List[CurtainSizeInput]
+
+class CurtainCalculateItemResult(BaseModel):
+    width_cm: float
+    height_cm: float
+    size_label: str
+    calculated_quantity_or_m2: float # Gerekli metre veya m2
+    fabric_cost: float
+    direct_cost: float
+    total_cost: float
+    sale_price: float
+    min_price: float
+    commission_amount: float
+    net_income: float
+    net_profit: float
+    profit_margin_pct: float
+
+class CreateCurtainProductRequest(BaseModel):
+    title: str
+    brand: str = "Taç"
+    category_name: str = "Tül Perde"
+    model_code: str
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    variants: List[Dict[str, Any]] # Calculated variants with barcode, size, prices, stock
+
+# Toplu Fiyat Ayarlama Şemaları
 class BulkAdjustmentRequest(BaseModel):
     scope: str # "all", "category", "selected"
     category_name: Optional[str] = None
     selected_variant_ids: Optional[List[int]] = []
-    
     adjustment_type: str # "percentage" veya "fixed_amount"
     operation: str # "increase" veya "decrease"
     value: float # örn: 10 (%10) veya 50 (50 TL)
-    round_to_90: bool = False # .90 TL ile bitir
-    default_cost_margin: Optional[float] = 0.40 # Varsayılan maliyet oranı
+    round_to_90: bool = False
 
 class BulkAdjustmentItemPreview(BaseModel):
     variant_id: int
@@ -66,12 +108,12 @@ class BulkAdjustmentItemPreview(BaseModel):
     price_diff: float
     commission_rate: float
     commission_amount: float
-    estimated_net_income: float # Satıcının eline geçecek net tutar
+    estimated_net_income: float
     estimated_net_profit: float
     profit_margin_pct: float
 
 class BulkSyncTrendyolRequest(BaseModel):
-    items: List[dict] # [{"variant_id": 1, "new_price": 329.90, "cost_price": 120.0}]
+    items: List[dict]
 
 class SingleVariantPriceUpdate(BaseModel):
     variant_id: int
@@ -80,7 +122,7 @@ class SingleVariantPriceUpdate(BaseModel):
 
 class BuyboxTrackUpdate(BaseModel):
     is_active: bool
-    strategy: str # beat_by_diff, match, alert_only
+    strategy: str
     price_diff: float = 0.50
 
 class BuyboxItemResponse(BaseModel):

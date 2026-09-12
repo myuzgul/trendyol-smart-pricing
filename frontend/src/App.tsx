@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
+import { CurtainWizard } from './pages/CurtainWizard';
 import { FormulaPricing } from './pages/FormulaPricing';
 import { BuyboxRadar } from './pages/BuyboxRadar';
 import { PriceLogs } from './pages/PriceLogs';
@@ -10,7 +11,7 @@ import { Product, BuyboxItem, PriceLog, SellerSettings } from './types';
 import { api } from './api';
 
 export function App() {
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>('curtain_wizard');
   const [products, setProducts] = useState<Product[]>([]);
   const [buyboxItems, setBuyboxItems] = useState<BuyboxItem[]>([]);
   const [logs, setLogs] = useState<PriceLog[]>([]);
@@ -92,6 +93,11 @@ export function App() {
                   buyboxItems={buyboxItems}
                   logs={logs}
                   onNavigate={setCurrentTab}
+                />
+              )}
+              {currentTab === 'curtain_wizard' && (
+                <CurtainWizard
+                  onProductCreated={loadAllData}
                 />
               )}
               {currentTab === 'formula' && (

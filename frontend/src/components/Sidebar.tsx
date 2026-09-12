@@ -6,7 +6,8 @@ import {
   History, 
   Settings, 
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  PackagePlus
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,6 +19,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isMockMode }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
+    { id: 'curtain_wizard', label: 'Perde Ürün Sihirbazı', icon: PackagePlus, badge: 'Yeni Ürün & Ölçü' },
     { id: 'formula', label: 'Toplu Fiyat & Eşitleme', icon: TrendingUp, badge: 'Trendyol Canlı' },
     { id: 'buybox', label: 'Buybox Radarı & Repricer', icon: Radar, badge: 'Canlı Takip' },
     { id: 'logs', label: 'Fiyat Geçmişi & Loglar', icon: History },
@@ -36,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isM
             <h1 className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
               Trendyol <span className="text-orange-500 text-xs px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/30">PRO</span>
             </h1>
-            <p className="text-xs text-slate-400">Akıllı Fiyat & Eşitleme</p>
+            <p className="text-xs text-slate-400">Akıllı Perde & Fiyatlama</p>
           </div>
         </div>
 
@@ -90,9 +92,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isM
       {/* Footer Info */}
       <div className="p-4 border-t border-slate-800/80">
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-xs text-slate-400">
-          <p className="font-medium text-slate-300">Tek Tıkla Eşitleme</p>
+          <p className="font-medium text-slate-300">Sektörel Perde Motoru</p>
           <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-            Seçilen tüm varyant fiyatları Trendyol'a anında aktarılır.
+            Tül, Stor, Zebra ve Fon perdeler için tam uyumlu formül hesabı.
           </p>
         </div>
       </div>
