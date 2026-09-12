@@ -16,7 +16,13 @@ import {
   DollarSign, 
   HelpCircle,
   PackagePlus,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Activity,
+  Building2,
+  Clock,
+  Palette,
+  Box
 } from 'lucide-react';
 import { CurtainCalculateBatchRequest, CurtainCalculateItemResult, CurtainSizeInput } from '../types';
 import { api } from '../api';
@@ -25,7 +31,6 @@ interface CurtainWizardProps {
   onProductCreated: () => void;
 }
 
-// Hazır Standart Ölçü Şablonları
 const STANDARD_TUL_FON_SIZES: CurtainSizeInput[] = [
   { width: 100, height: 260 },
   { width: 120, height: 260 },
@@ -58,14 +63,27 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
   // Category Type
   const [categoryType, setCategoryType] = useState<'tul' | 'stor_zebra' | 'fon' | 'karartma_saten'>('tul');
 
+  // Trendyol V2 Meta States
+  const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState<number>(361);
+  const [selectedBrandName, setSelectedBrandName] = useState<string>('Taç');
+  
+  const [cargoCompanies, setCargoCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [selectedCargoCompanyId, setSelectedCargoCompanyId] = useState<number>(10);
+  
+  const [deliveryDuration, setDeliveryDuration] = useState<number>(2); // 2 gün
+  const [vatRate, setVatRate] = useState<number>(10); // %10 KDV
+  const [desi, setDesi] = useState<number>(2.0);
+  const [color, setColor] = useState<string>('Ekru');
+
   // Product Basic Info
   const [productTitle, setProductTitle] = useState<string>('Taç Ekstraforlu Premium Jakar Fon Perde');
-  const [brand, setBrand] = useState<string>('Taç');
   const [modelCode, setModelCode] = useState<string>('PERDE-TAC-01');
   const [imageUrl, setImageUrl] = useState<string>('https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80');
+  const [description, setDescription] = useState<string>('<p>Özel ölçü lüks perde. Dökümlü kumaş, yıkamaya dayanıklı ve kırışmaz.</p>');
 
   // Calculation Parameters
-  const [unitPrice, setUnitPrice] = useState<number>(120.0); // Metre veya M2 fiyatı
+  const [unitPrice, setUnitPrice] = useState<number>(120.0);
   const [pleatType, setPleatType] = useState<'pilesiz' | '1x2' | '1x2.5' | '1x3'>('1x2.5');
   const [panelType, setPanelType] = useState<'tek_kanat' | 'cift_kanat'>('tek_kanat');
   const [hasSkirt, setHasSkirt] = useState<boolean>(false);
@@ -84,22 +102,46 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
   const [customWidth, setCustomWidth] = useState<number>(150);
   const [customHeight, setCustomHeight] = useState<number>(260);
 
-  // Calculation Results & Sync State
+  // Results & Batch Progress
   const [calculatedItems, setCalculatedItems] = useState<CurtainCalculateItemResult[]>([]);
   const [calculating, setCalculating] = useState<boolean>(false);
   const [creating, setCreating] = useState<boolean>(false);
+  const [lastBatchId, setLastBatchId] = useState<string | null>(null);
+  const [batchStatusResult, setBatchStatusResult] = useState<any>(null);
+  const [checkingBatch, setCheckingBatch] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
-  // Auto-switch size template when category changes
+  // Load Brands and Cargo Companies on Mount
+  useEffect(() => {
+    const loadMeta = async () => {
+      try {
+        const [bList, cList] = await Promise.all([
+          api.getBrands(),
+          api.getCargoCompanies()
+        ]);
+        setBrands(bList);
+        setCargoCompanies(cList);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadMeta();
+  }, []);
+
+  // Auto-switch template when category changes
   useEffect(() => {
     if (categoryType === 'stor_zebra') {
       setSizes(STANDARD_STOR_ZEBRA_SIZES);
       setProductTitle('Brillant Karartmalı Zebra Stor Perde');
       setModelCode('STOR-BRIL-01');
+      setSelectedBrandId(482);
+      setSelectedBrandName('Brillant');
     } else if (categoryType === 'fon') {
       setSizes(STANDARD_TUL_FON_SIZES);
       setProductTitle('Taç Dokuma Lüks Fon Perde');
       setModelCode('FON-TAC-01');
+      setSelectedBrandId(361);
+      setSelectedBrandName('Taç');
     } else if (categoryType === 'karartma_saten') {
       setSizes(STANDARD_TUL_FON_SIZES);
       setProductTitle('Blackout Karartma & Saten Güneşlik Perde');
@@ -108,6 +150,8 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
       setSizes(STANDARD_TUL_FON_SIZES);
       setProductTitle('Brillant Keten Dökümlü Grek Tül Perde');
       setModelCode('TUL-BRIL-01');
+      setSelectedBrandId(482);
+      setSelectedBrandName('Brillant');
     }
   }, [categoryType]);
 
@@ -158,7 +202,6 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
     sizes
   ]);
 
-  // Size management
   const addCustomSize = () => {
     if (customWidth > 0 && customHeight > 0) {
       setSizes([...sizes, { width: customWidth, height: customHeight }]);
@@ -169,12 +212,15 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
     setSizes(sizes.filter((_, i) => i !== index));
   };
 
-  // Push / Create to Trendyol
-  const handleCreateOnTrendyol = async () => {
+  // Push to Trendyol V2 (createProducts V2)
+  const handleCreateOnTrendyolV2 = async () => {
     if (calculatedItems.length === 0) return;
     setCreating(true);
     setSuccessBanner(null);
+    setBatchStatusResult(null);
     try {
+      const categoryId = categoryType === 'tul' ? 2045 : categoryType === 'fon' ? 2046 : categoryType === 'stor_zebra' ? 2047 : 2048;
+
       const variants = calculatedItems.map(item => ({
         width_cm: item.width_cm,
         height_cm: item.height_cm,
@@ -188,20 +234,44 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
 
       const payload = {
         title: productTitle,
-        brand: brand,
+        brand_id: selectedBrandId,
+        brand_name: selectedBrandName,
+        category_id: categoryId,
         category_name: getCategoryLabel(categoryType),
         model_code: modelCode,
+        description: description,
+        color: color,
+        cargo_company_id: selectedCargoCompanyId,
+        delivery_duration: deliveryDuration,
+        vat_rate: vatRate,
+        dimensional_weight: desi,
         image_url: imageUrl,
         variants: variants
       };
 
-      const res = await api.createProductWithVariants(payload);
+      const res = await api.createProductV2(payload);
       setSuccessBanner(res.message);
+      if (res.batch_request_id) {
+        setLastBatchId(res.batch_request_id);
+      }
       onProductCreated();
     } catch (err: any) {
-      alert('Trendyol ürün yükleme hatası: ' + err.message);
+      alert('Trendyol V2 Ürün Yükleme Hatası: ' + err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const checkBatchStatus = async () => {
+    if (!lastBatchId) return;
+    setCheckingBatch(true);
+    try {
+      const res = await api.getBatchStatus(lastBatchId);
+      setBatchStatusResult(res);
+    } catch (err: any) {
+      alert('Batch sorgu hatası: ' + err.message);
+    } finally {
+      setCheckingBatch(false);
     }
   };
 
@@ -224,38 +294,59 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-orange-400 mb-1">
             <PackagePlus className="w-4 h-4" />
-            <span>Sektörel Perde Sihirbazı</span>
+            <span>Trendyol Ürün V2 Resmi Entegrasyonu</span>
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Akıllı Perde Ürün & Varyant Yükleme</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Akıllı Perde Ürün & Varyant Sihirbazı (V2)</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Tül, Stor, Zebra ve Fon perdeler için sektörel kurallarla tek tıkla 40+ ölçü oluşturun ve Trendyol'a yükleyin.
+            Trendyol V2 API Gateway standartlarına uygun; marka, KDV, kargo, desi ve renk tanımlarıyla tek tıkla ürün açın.
           </p>
         </div>
 
         {/* Primary Action Button */}
         <button
-          onClick={handleCreateOnTrendyol}
+          onClick={handleCreateOnTrendyolV2}
           disabled={creating || calculatedItems.length === 0}
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs shadow-xl shadow-orange-500/25 flex items-center gap-2.5 transition disabled:opacity-50"
         >
           <Send className={`w-4 h-4 ${creating ? 'animate-bounce' : ''}`} />
-          <span>{creating ? 'Trendyol\'a Yükleniyor...' : `Tüm Varyantlarla (${calculatedItems.length}) Trendyol'a Yükle`}</span>
+          <span>{creating ? 'Trendyol V2\'ye Aktarılıyor...' : `Tüm Ölçülerle (${calculatedItems.length}) Trendyol V2'ye Yükle`}</span>
         </button>
       </div>
 
-      {/* Success Notification */}
+      {/* Success & Batch Status Banner */}
       {successBanner && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-between animate-fadeIn shadow-lg">
-          <div className="flex items-center gap-2.5 text-sm font-medium">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>{successBanner}</span>
+        <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-3 shadow-lg animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 text-sm font-semibold">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{successBanner}</span>
+            </div>
+            <button onClick={() => setSuccessBanner(null)} className="text-xs underline hover:text-emerald-100">Kapat</button>
           </div>
-          <button
-            onClick={() => setSuccessBanner(null)}
-            className="text-xs underline hover:text-emerald-100"
-          >
-            Kapat
-          </button>
+
+          {lastBatchId && (
+            <div className="pt-2 border-t border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-300 font-mono">
+                <span className="text-slate-400">Batch Request ID:</span>
+                <code className="bg-slate-950 px-2.5 py-1 rounded text-orange-400 font-bold">{lastBatchId}</code>
+              </div>
+              <button
+                onClick={checkBatchStatus}
+                disabled={checkingBatch}
+                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg transition flex items-center gap-1.5"
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>{checkingBatch ? 'Kontrol Ediliyor...' : 'Trendyol Onay Durumunu Sorgula'}</span>
+              </button>
+            </div>
+          )}
+
+          {batchStatusResult && (
+            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 space-y-1">
+              <div>Durum: <strong className="text-emerald-400">{batchStatusResult.status}</strong></div>
+              <div>Toplam Öğe: {batchStatusResult.itemCount} | Hatalı Öğe: {batchStatusResult.failedItemCount || 0}</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -273,8 +364,8 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             <Scissors className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-100">🪟 Tül Perde</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Pileli (1x2, 1x2.5, 1x3) veya Pilesiz metre hesabı</p>
+            <h4 className="text-sm font-bold text-slate-100">🪟 Tül Perde (V2)</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Pilesiz, 1x2, 1x2.5, 1x3 Pile metre formülü</p>
           </div>
         </button>
 
@@ -290,8 +381,8 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             <ScrollText className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-100">📜 Stor & Zebra</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">M² hesabı, min 2 m² kuralı, etek ve boncuk opsiyonu</p>
+            <h4 className="text-sm font-bold text-slate-100">📜 Stor & Zebra (V2)</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">M² hesabı, min 2 m² kuralı, etek ve boncuk</p>
           </div>
         </button>
 
@@ -307,8 +398,8 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             <Theater className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-100">🎭 Fon Perde</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Tek Kanat / Çift Kanat ve pile seçenekleri</p>
+            <h4 className="text-sm font-bold text-slate-100">🎭 Fon Perde (V2)</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Tek / Çift Kanat ve pile seçenekleri</p>
           </div>
         </button>
 
@@ -324,18 +415,26 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             <SunMedium className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-100">🌑 Karartma / Saten</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Blackout ve Saten Güneşlik dikiş payı hesabı</p>
+            <h4 className="text-sm font-bold text-slate-100">🌑 Karartma / Saten (V2)</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Blackout ve Saten Güneşlik dikiş payı</p>
           </div>
         </button>
       </div>
 
-      {/* Step 2: Dynamic Parameters & Formula Rules Console */}
+      {/* Step 2: Trendyol V2 Meta & Attributes Setup */}
       <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 space-y-6 shadow-2xl">
-        {/* Product Basic Meta */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-300">
+            <Building2 className="w-4 h-4 text-orange-400" />
+            <span>1. Trendyol V2 Ürün Özellikleri & Meta Bilgileri</span>
+          </div>
+          <span className="text-[11px] text-slate-500 font-mono">POST /v2/products Uyumlu</span>
+        </div>
+
+        {/* Row 1: Title, Model, Brand, Color */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <div className="md:col-span-2">
-            <label className="block text-slate-400 font-medium mb-1.5">Trendyol Ürün Başlığı:</label>
+            <label className="block text-slate-400 font-medium mb-1.5">Trendyol Ürün Başlığı (title):</label>
             <input
               type="text"
               value={productTitle}
@@ -343,23 +442,105 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-100 font-medium focus:border-orange-500"
             />
           </div>
+
           <div>
-            <label className="block text-slate-400 font-medium mb-1.5">Marka:</label>
-            <input
-              type="text"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-100 font-medium focus:border-orange-500"
-            />
+            <label className="block text-slate-400 font-medium mb-1.5">Marka Seçimi (brandId):</label>
+            <select
+              value={selectedBrandId}
+              onChange={(e) => {
+                const bId = Number(e.target.value);
+                setSelectedBrandId(bId);
+                const b = brands.find(item => item.id === bId);
+                if (b) setSelectedBrandName(b.name);
+              }}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium focus:border-orange-500"
+            >
+              {brands.map(b => (
+                <option key={b.id} value={b.id}>{b.name} (ID: {b.id})</option>
+              ))}
+            </select>
           </div>
+
           <div>
-            <label className="block text-slate-400 font-medium mb-1.5">Model Kodu (Barkod Ön Eki):</label>
+            <label className="block text-slate-400 font-medium mb-1.5">Model Kodu (productMainId):</label>
             <input
               type="text"
               value={modelCode}
               onChange={(e) => setModelCode(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-orange-400 font-bold uppercase focus:border-orange-500"
             />
+          </div>
+        </div>
+
+        {/* Row 2: Cargo, DeliveryDuration, VAT, Desi, Color */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Kargo Firması:</label>
+            <select
+              value={selectedCargoCompanyId}
+              onChange={(e) => setSelectedCargoCompanyId(Number(e.target.value))}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              {cargoCompanies.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Kargoya Verme (Gün):</label>
+            <select
+              value={deliveryDuration}
+              onChange={(e) => setDeliveryDuration(Number(e.target.value))}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value={1}>1 Gün (Hızlı Teslimat)</option>
+              <option value={2}>2 Gün (Standart)</option>
+              <option value={3}>3 Gün (Özel Dikim)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">KDV Oranı (%):</label>
+            <select
+              value={vatRate}
+              onChange={(e) => setVatRate(Number(e.target.value))}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value={10}>%10 KDV (Tekstil/Perde)</option>
+              <option value={20}>%20 KDV (Standart)</option>
+              <option value={1}>%1 KDV</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Desi (Hacim):</label>
+            <input
+              type="number"
+              step="0.5"
+              value={desi}
+              onChange={(e) => setDesi(Number(e.target.value))}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-xl p-2.5"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Renk Özelliği:</label>
+            <select
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Ekru">Ekru</option>
+              <option value="Beyaz">Beyaz</option>
+              <option value="Krem">Krem</option>
+              <option value="Antrasit">Antrasit</option>
+              <option value="Vizon">Vizon</option>
+              <option value="Gri">Gri</option>
+              <option value="Bej">Bej</option>
+              <option value="Pudra">Pudra</option>
+              <option value="Lacivert">Lacivert</option>
+            </select>
           </div>
         </div>
 
@@ -456,7 +637,6 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
                 )}
               </div>
 
-              {/* Boncuk Seçeneği (Sadece Etek Dilimli ise Görünür) */}
               {hasSkirt && (
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 animate-fadeIn">
                   <label className="flex items-center justify-between text-slate-300 font-medium cursor-pointer">
@@ -485,7 +665,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             </>
           )}
 
-          {/* Kâr & Komisyon Ayarları */}
+          {/* Kâr & Komisyon */}
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
             <div className="flex items-center justify-between text-slate-400">
               <span>Hedef Kâr Marjı:</span>
@@ -508,7 +688,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
         </div>
       </div>
 
-      {/* Step 3: Size Matrix & Custom Size Adder */}
+      {/* Step 3: Size Matrix */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -518,7 +698,6 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
             </h3>
           </div>
 
-          {/* Custom Size Adder */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-400">Özel Ölçü:</span>
             <input
@@ -546,7 +725,6 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
           </div>
         </div>
 
-        {/* Quick Size Badges */}
         <div className="flex flex-wrap gap-2 pt-2">
           {sizes.map((s, idx) => (
             <div
@@ -571,9 +749,9 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
         <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
             <Sparkles className="w-4 h-4 text-orange-400" />
-            <span>Hesaplanan Canlı Varyant Fiyatları ({calculatedItems.length} Varyant)</span>
+            <span>Trendyol V2 Formatında Hesaplanmış Varyantlar ({calculatedItems.length} Varyant)</span>
           </div>
-          <span className="text-[11px] text-slate-400">Trendyol Satış Önizlemesi</span>
+          <span className="text-[11px] text-slate-400">Canlı Önizleme</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -585,9 +763,9 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
                   {categoryType === 'stor_zebra' ? 'Hesaplanan M²' : 'Gerekli Kumaş (Metre)'}
                 </th>
                 <th className="py-3.5 px-4">Üretim Maliyeti</th>
-                <th className="py-3.5 px-4 text-orange-400">Trendyol Satış Fiyatı</th>
+                <th className="py-3.5 px-4 text-orange-400">Trendyol Satış Fiyatı (TSF)</th>
                 <th className="py-3.5 px-4 text-purple-400">Taban Fiyat (Güvenlik)</th>
-                <th className="py-3.5 px-4">Komisyon (%20)</th>
+                <th className="py-3.5 px-4">Komisyon (%{vatRate ? 20 : 20})</th>
                 <th className="py-3.5 px-4 text-emerald-400">Ele Geçecek Net</th>
                 <th className="py-3.5 px-4 text-emerald-400">Net Kâr / Marj</th>
               </tr>

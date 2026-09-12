@@ -65,7 +65,7 @@ class CurtainCalculateItemResult(BaseModel):
     width_cm: float
     height_cm: float
     size_label: str
-    calculated_quantity_or_m2: float # Gerekli metre veya m2
+    calculated_quantity_or_m2: float
     fabric_cost: float
     direct_cost: float
     total_cost: float
@@ -76,14 +76,22 @@ class CurtainCalculateItemResult(BaseModel):
     net_profit: float
     profit_margin_pct: float
 
-class CreateCurtainProductRequest(BaseModel):
+# Trendyol V2 Uyumlu Ürün Yükleme Şeması
+class CreateCurtainProductRequestV2(BaseModel):
     title: str
-    brand: str = "Taç"
+    brand_id: int = 361
+    brand_name: str = "Taç"
+    category_id: int = 2045
     category_name: str = "Tül Perde"
     model_code: str
+    description: Optional[str] = "<p>Özel ölçü kaliteli perde. Yıkamaya dayanıklı, dökümlü ve ütü istemez kumaş.</p>"
+    color: Optional[str] = "Ekru"
+    cargo_company_id: Optional[int] = 10 # Trendyol Express
+    delivery_duration: Optional[int] = 2 # 2 gün
+    vat_rate: Optional[int] = 10 # %10 KDV
+    dimensional_weight: Optional[float] = 2.0 # Desi
     image_url: Optional[str] = None
-    description: Optional[str] = None
-    variants: List[Dict[str, Any]] # Calculated variants with barcode, size, prices, stock
+    variants: List[Dict[str, Any]]
 
 # Toplu Fiyat Ayarlama Şemaları
 class BulkAdjustmentRequest(BaseModel):
@@ -92,7 +100,7 @@ class BulkAdjustmentRequest(BaseModel):
     selected_variant_ids: Optional[List[int]] = []
     adjustment_type: str # "percentage" veya "fixed_amount"
     operation: str # "increase" veya "decrease"
-    value: float # örn: 10 (%10) veya 50 (50 TL)
+    value: float
     round_to_90: bool = False
 
 class BulkAdjustmentItemPreview(BaseModel):

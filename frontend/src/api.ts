@@ -6,8 +6,7 @@ import {
   PriceLog,
   SellerSettings,
   CurtainCalculateBatchRequest,
-  CurtainCalculateItemResult,
-  CreateCurtainProductRequest
+  CurtainCalculateItemResult
 } from './types';
 
 const BASE_URL = 'http://127.0.0.1:8000/api';
@@ -37,6 +36,29 @@ export const api = {
     return res.json();
   },
 
+  // Trendyol V2 Meta Servisleri
+  getBrands: async (name?: string): Promise<{ id: number; name: string }[]> => {
+    const url = name ? `${BASE_URL}/products/brands?name=${encodeURIComponent(name)}` : `${BASE_URL}/products/brands`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Markalar alınamadı');
+    return res.json();
+  },
+  getCategoryTree: async (): Promise<{ id: number; name: string; parentId?: number }[]> => {
+    const res = await fetch(`${BASE_URL}/products/categories-tree`);
+    if (!res.ok) throw new Error('Kategoriler alınamadı');
+    return res.json();
+  },
+  getCargoCompanies: async (): Promise<{ id: number; name: string }[]> => {
+    const res = await fetch(`${BASE_URL}/products/cargo-companies`);
+    if (!res.ok) throw new Error('Kargo firmaları alınamadı');
+    return res.json();
+  },
+  getBatchStatus: async (batchRequestId: string): Promise<any> => {
+    const res = await fetch(`${BASE_URL}/products/batch-status/${batchRequestId}`);
+    if (!res.ok) throw new Error('Batch durumu sorgulanamadı');
+    return res.json();
+  },
+
   // Products & Curtain Wizard
   getProducts: async (): Promise<Product[]> => {
     const res = await fetch(`${BASE_URL}/products`);
@@ -57,8 +79,8 @@ export const api = {
     if (!res.ok) throw new Error('Perde hesaplaması yapılamadı');
     return res.json();
   },
-  createProductWithVariants: async (data: CreateCurtainProductRequest): Promise<any> => {
-    const res = await fetch(`${BASE_URL}/products/create-with-variants`, {
+  createProductV2: async (data: any): Promise<any> => {
+    const res = await fetch(`${BASE_URL}/products/create-v2`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)

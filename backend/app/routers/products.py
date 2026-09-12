@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,9 +9,14 @@ from ..schemas import (
     ProductResponse,
     CurtainCalculateBatchRequest,
     CurtainCalculateItemResult,
-    CreateCurtainProductRequest
+    CreateCurtainProductRequestV2
 )
-from ..services.trendyol_client import TrendyolClient
+from ..services.trendyol_client import (
+    TrendyolClient, 
+    TRENDYOL_PERDE_BRANDS, 
+    TRENDYOL_PERDE_CATEGORIES, 
+    TRENDYOL_CARGO_COMPANIES
+)
 from ..services.curtain_calculator import CurtainCalculator
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -20,21 +25,46 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 def get_products(db: Session = Depends(get_db)):
     products = db.query(Product).all()
     if not products:
-        # İlk açılışta demo verileri yükle
         import asyncio
         asyncio.create_task(sync_products_from_source(db))
         products = db.query(Product).all()
     return products
 
-@router.post("/sync")
-async def sync_products(db: Session = Depends(get_db)):
-    return await sync_products_from_source(db)
+@router.get("/brands")
+async def get_brands(name: Optional[str] = None, db: Session = Depends(get_db)):
+    seller = db.query(SellerAccount).first()
+    is_mock = seller.is_mock_mode if seller else True
+    return await TrendyolClient.get_brands(name=name, is_mock=is_mock)
+
+@router.get("/categories-tree")
+async def get_categories(db: Session = Depends(get_db)):
+    seller = db.query(SellerAccount).first()
+    is_mock = seller.is_mock_mode if seller else True
+    return await TrendyolClient.get_categories(is_mock=is_mock)
+
+@router.get("/cargo-companies")
+def get_cargo_companies():
+    return TRENDYOL_CARGO_COMPANIES
+
+@router.get("/categories/{category_id}/attributes")
+async def get_category_attributes(category_id: int, db: Session = Depends(get_db)):
+    seller = db.query(SellerAccount).first()
+    is_mock = seller.is_mock_mode if seller else True
+    return await TrendyolClient.get_category_attributes(category_id, is_mock=is_mock)
+
+@router.get("/batch-status/{batch_request_id}")
+async def get_batch_status(batch_request_id: str, db: Session = Depends(get_db)):
+    seller = db.query(SellerAccount).first()
+    return await TrendyolClient.get_batch_request_result(
+        supplier_id=seller.supplier_id if seller else "DEMO",
+        api_key=seller.api_key if seller else "DEMO",
+        api_secret=seller.api_secret if seller else "DEMO",
+        batch_request_id=batch_request_id,
+        is_mock=seller.is_mock_mode if seller else True
+    )
 
 @router.post("/calculate-curtain", response_model=List[CurtainCalculateItemResult])
 def calculate_curtain_sizes(payload: CurtainCalculateBatchRequest):
-    """
-    Kullanıcının seçtiği perde kategorisine ve sektörel kurallara göre tüm ölçüleri hesaplar.
-    """
     results = []
     for s in payload.sizes:
         w = s.width
@@ -116,10 +146,10 @@ def calculate_curtain_sizes(payload: CurtainCalculateBatchRequest):
 
     return results
 
-@router.post("/create-with-variants")
-async def create_product_with_variants(payload: CreateCurtainProductRequest, db: Session = Depends(get_db)):
+@router.post("/create-v2")
+async def create_product_v2(payload: CreateCurtainProductRequestV2, db: Session = Depends(get_db)):
     """
-    Yeni perde ürününü ve hesaplanan onlarca varyantını veritabanına kaydeder ve Trendyol'a yükler.
+    Trendyol Ürün Yaratma V2 Standardında (POST /v2/products) ürün ve onlarca varyantı oluşturma.
     """
     seller = db.query(SellerAccount).first()
     if not seller:
@@ -128,42 +158,42 @@ async def create_product_with_variants(payload: CreateCurtainProductRequest, db:
         db.commit()
         db.refresh(seller)
 
-    # 1. Ana Ürün Kaydı
     clean_model_code = payload.model_code.strip().upper().replace(" ", "-")
-    existing_product = db.query(Product).filter(Product.model_code == clean_model_code).first()
-    if existing_product:
-        prod = existing_product
-        prod.title = payload.title
-        prod.brand = payload.brand
-        prod.category_name = payload.category_name
-        prod.image_url = payload.image_url
-    else:
+
+    # 1. Yerel Veritabanına Kayıt
+    prod = db.query(Product).filter(Product.model_code == clean_model_code).first()
+    if not prod:
         prod = Product(
             seller_id=seller.id,
             model_code=clean_model_code,
             title=payload.title,
-            brand=payload.brand,
+            brand=payload.brand_name,
             category_name=payload.category_name,
             image_url=payload.image_url or "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80"
         )
         db.add(prod)
         db.commit()
         db.refresh(prod)
+    else:
+        prod.title = payload.title
+        prod.brand = payload.brand_name
+        prod.category_name = payload.category_name
 
-    # 2. Varyantların Oluşturulması
-    trendyol_items = []
-    created_variant_count = 0
+    # 2. Trendyol V2 Payload Hazırlama
+    v2_items = []
 
     for item in payload.variants:
         w = float(item.get("width_cm", 100))
         h = float(item.get("height_cm", 200))
+        size_lbl = item.get("size_label", f"{int(w)} x {int(h)} cm")
         barcode = item.get("barcode") or f"{clean_model_code}-{int(w)}-{int(h)}"
         sale_p = float(item.get("sale_price", 299.90))
+        list_p = round(sale_p * 1.25, 2)
         min_p = float(item.get("min_price", sale_p * 0.75))
         direct_cost = float(item.get("direct_cost", sale_p * 0.40))
         stock_q = int(item.get("stock_quantity", 50))
-        size_lbl = item.get("size_label", f"{int(w)} x {int(h)} cm")
 
+        # DB Varyant güncelle / ekle
         variant = db.query(ProductVariant).filter(ProductVariant.barcode == barcode).first()
         if not variant:
             variant = ProductVariant(
@@ -184,9 +214,7 @@ async def create_product_with_variants(payload: CreateCurtainProductRequest, db:
             db.add(variant)
             db.commit()
             db.refresh(variant)
-            created_variant_count += 1
 
-            # Buybox takibi oluştur
             buybox = BuyboxTracking(
                 variant_id=variant.id,
                 is_active=True,
@@ -203,30 +231,57 @@ async def create_product_with_variants(payload: CreateCurtainProductRequest, db:
             variant.cost_price = direct_cost
             variant.stock_quantity = stock_q
 
-        trendyol_items.append({
+        # Resmi Trendyol V2 Item Şeması
+        v2_item = {
             "barcode": barcode,
+            "title": f"{payload.title} {size_lbl}",
+            "productMainId": clean_model_code,
+            "brandId": payload.brand_id,
+            "categoryId": payload.category_id,
             "quantity": stock_q,
+            "stockCode": barcode,
+            "dimensionalWeight": payload.dimensional_weight or 2.0,
+            "description": payload.description or f"<p>{payload.title} kaliteli kumaş perde.</p>",
+            "currencyType": "TRY",
+            "listPrice": list_p,
             "salePrice": sale_p,
-            "listPrice": round(sale_p * 1.25, 2)
-        })
+            "vatRate": payload.vat_rate or 10,
+            "cargoCompanyId": payload.cargo_company_id or 10,
+            "deliveryDuration": payload.delivery_duration or 2,
+            "images": [
+                {"url": payload.image_url or "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80"}
+            ],
+            "attributes": [
+                {
+                    "attributeId": 338, # Ebat / Beden
+                    "customAttributeValue": size_lbl
+                },
+                {
+                    "attributeId": 47, # Renk
+                    "customAttributeValue": payload.color or "Ekru"
+                }
+            ]
+        }
+        v2_items.append(v2_item)
 
     db.commit()
 
-    # Trendyol'a yükle / eşitle
-    api_resp = await TrendyolClient.update_price_and_inventory(
+    # 3. Trendyol V2 Endpoint'ine Gönder (POST /integration/product/sellers/{sellerId}/v2/products)
+    api_resp = await TrendyolClient.create_products_v2(
         supplier_id=seller.supplier_id,
         api_key=seller.api_key,
         api_secret=seller.api_secret,
-        items=trendyol_items,
+        items=v2_items,
         is_mock=seller.is_mock_mode
     )
 
     return {
         "status": "success",
         "product_id": prod.id,
-        "model_code": prod.model_code,
-        "variant_count": len(trendyol_items),
-        "message": f"'{prod.title}' ürünü {len(trendyol_items)} adet ölçü varyantıyla başarıyla oluşturuldu ve Trendyol'a yüklendi.",
+        "model_code": clean_model_code,
+        "variant_count": len(v2_items),
+        "batch_request_id": api_resp.get("batchRequestId"),
+        "message": f"Trendyol V2: '{prod.title}' ürünü {len(v2_items)} adet ölçü varyantıyla başarıyla Trendyol API V2'ye gönderildi.",
         "trendyol_response": api_resp
     }
 
