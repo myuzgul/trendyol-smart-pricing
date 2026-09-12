@@ -36,6 +36,28 @@ export const api = {
     return res.json();
   },
 
+  // Sipariş & Atölye Kesim Listesi (getShipmentPackages)
+  getOrders: async (status?: string): Promise<any[]> => {
+    const url = status ? `${BASE_URL}/orders?status=${status}` : `${BASE_URL}/orders`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Siparişler alınamadı');
+    return res.json();
+  },
+  getWorkshopCuttingSlip: async (): Promise<any> => {
+    const res = await fetch(`${BASE_URL}/orders/workshop-cutting-slip`);
+    if (!res.ok) throw new Error('Atölye kesim fişi alınamadı');
+    return res.json();
+  },
+  updateOrderStatus: async (packetId: string, status: string): Promise<any> => {
+    const res = await fetch(`${BASE_URL}/orders/${packetId}/update-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error('Sipariş durumu güncellenemedi');
+    return res.json();
+  },
+
   // Trendyol V2 Meta Servisleri
   getBrands: async (name?: string): Promise<{ id: number; name: string }[]> => {
     const url = name ? `${BASE_URL}/products/brands?name=${encodeURIComponent(name)}` : `${BASE_URL}/products/brands`;

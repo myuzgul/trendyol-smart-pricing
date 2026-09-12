@@ -7,7 +7,8 @@ import {
   Settings, 
   Sparkles,
   ShoppingBag,
-  PackagePlus
+  PackagePlus,
+  Scissors
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -19,7 +20,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isMockMode }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
-    { id: 'curtain_wizard', label: 'Perde Ürün Sihirbazı', icon: PackagePlus, badge: 'Yeni Ürün & Ölçü' },
+    { id: 'curtain_wizard', label: 'Perde Ürün Sihirbazı', icon: PackagePlus, badge: 'V2 Ürün Yükle' },
+    { id: 'orders_workshop', label: 'Siparişler & Kesim Fişi', icon: Scissors, badge: 'SLA & İmalat' },
     { id: 'formula', label: 'Toplu Fiyat & Eşitleme', icon: TrendingUp, badge: 'Trendyol Canlı' },
     { id: 'buybox', label: 'Buybox Radarı & Repricer', icon: Radar, badge: 'Canlı Takip' },
     { id: 'logs', label: 'Fiyat Geçmişi & Loglar', icon: History },
@@ -27,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isM
   ];
 
   return (
-    <aside className="w-64 bg-slate-950/80 backdrop-blur-md border-r border-slate-800 flex flex-col justify-between shrink-0 min-h-screen">
+    <aside className="w-64 bg-slate-950/80 backdrop-blur-md border-r border-slate-800 flex flex-col justify-between shrink-0 min-h-screen print:hidden">
       <div>
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
@@ -38,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isM
             <h1 className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
               Trendyol <span className="text-orange-500 text-xs px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/30">PRO</span>
             </h1>
-            <p className="text-xs text-slate-400">Akıllı Perde & Fiyatlama</p>
+            <p className="text-xs text-slate-400">Akıllı Perde & İmalat</p>
           </div>
         </div>
 
@@ -92,9 +94,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, isM
       {/* Footer Info */}
       <div className="p-4 border-t border-slate-800/80">
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-xs text-slate-400">
-          <p className="font-medium text-slate-300">Sektörel Perde Motoru</p>
+          <p className="font-medium text-slate-300">Uçtan Uca İmalat & Satış</p>
           <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-            Tül, Stor, Zebra ve Fon perdeler için tam uyumlu formül hesabı.
+            Fiyatlama, ürün açma, SLA takibi ve atölye kesim raporları tek ekranda.
           </p>
         </div>
       </div>

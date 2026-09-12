@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
 import { CurtainWizard } from './pages/CurtainWizard';
+import { OrdersWorkshop } from './pages/OrdersWorkshop';
 import { FormulaPricing } from './pages/FormulaPricing';
 import { BuyboxRadar } from './pages/BuyboxRadar';
 import { PriceLogs } from './pages/PriceLogs';
@@ -99,6 +100,9 @@ export function App() {
                 <CurtainWizard
                   onProductCreated={loadAllData}
                 />
+              )}
+              {currentTab === 'orders_workshop' && (
+                <OrdersWorkshop />
               )}
               {currentTab === 'formula' && (
                 <FormulaPricing

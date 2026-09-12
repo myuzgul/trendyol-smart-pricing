@@ -32,6 +32,99 @@ TRENDYOL_CARGO_COMPANIES = [
     {"id": 5, "name": "PTT Kargo"}
 ]
 
+# Örnek Canlı Perde Siparişleri (getShipmentPackages Uyumlu)
+DEMO_ORDERS = [
+    {
+        "id": 901,
+        "orderNumber": "TY-98421054",
+        "packetId": "PKT-1001",
+        "customerFirstName": "Ahmet",
+        "customerLastName": "Yılmaz",
+        "shipmentAddress": "Atatürk Mah. Karanfil Sok. No:14 D:5 Kadıköy / İstanbul",
+        "orderDate": (datetime.datetime.utcnow() - datetime.timedelta(hours=4)).isoformat(),
+        "agreedDeliveryDate": (datetime.datetime.utcnow() + datetime.timedelta(hours=18)).isoformat(), # 18 saat kaldı
+        "status": "Created", # Created, Picking, Invoiced, Shipped
+        "cargoProviderName": "Trendyol Express",
+        "cargoTrackingNumber": "73409182341",
+        "lines": [
+            {
+                "lineId": 1,
+                "barcode": "PERDE-TAC-01-140-260",
+                "productName": "Taç Ekstraforlu Jakar Dokuma Fon Perde",
+                "productSize": "140 x 260 cm",
+                "color": "Antrasit",
+                "quantity": 2,
+                "price": 572.90,
+                "fabricType": "Jakar Fon Perde",
+                "calculatedMeters": 5.4 # 2 adet x 2.7m
+            }
+        ]
+    },
+    {
+        "id": 902,
+        "orderNumber": "TY-98421088",
+        "packetId": "PKT-1002",
+        "customerFirstName": "Zeynep",
+        "customerLastName": "Kaya",
+        "shipmentAddress": "Çankaya Mah. Barış Cad. No:8 Çankaya / Ankara",
+        "orderDate": (datetime.datetime.utcnow() - datetime.timedelta(hours=12)).isoformat(),
+        "agreedDeliveryDate": (datetime.datetime.utcnow() + datetime.timedelta(hours=6)).isoformat(), # 6 saat kaldı (Kritik!)
+        "status": "Created",
+        "cargoProviderName": "Trendyol Express",
+        "cargoTrackingNumber": "73409182390",
+        "lines": [
+            {
+                "lineId": 2,
+                "barcode": "TUL-BRIL-01-200-260",
+                "productName": "Brillant Dökümlü Keten Grek Tül Perde",
+                "productSize": "200 x 260 cm",
+                "color": "Ekru",
+                "quantity": 1,
+                "price": 689.90,
+                "fabricType": "Grek Keten Tül",
+                "calculatedMeters": 5.2 # 1x2.5 pile = (200*2.5+20)/100 = 5.2m
+            },
+            {
+                "lineId": 3,
+                "barcode": "TUL-BRIL-01-140-260",
+                "productName": "Brillant Dökümlü Keten Grek Tül Perde",
+                "productSize": "140 x 260 cm",
+                "color": "Ekru",
+                "quantity": 2,
+                "price": 489.90,
+                "fabricType": "Grek Keten Tül",
+                "calculatedMeters": 7.4 # 2 x 3.7m = 7.4m
+            }
+        ]
+    },
+    {
+        "id": 903,
+        "orderNumber": "TY-98421110",
+        "packetId": "PKT-1003",
+        "customerFirstName": "Mehmet",
+        "customerLastName": "Demir",
+        "shipmentAddress": "Alsancak Mah. 1450 Sok. No:2 Konak / İzmir",
+        "orderDate": (datetime.datetime.utcnow() - datetime.timedelta(hours=2)).isoformat(),
+        "agreedDeliveryDate": (datetime.datetime.utcnow() + datetime.timedelta(hours=34)).isoformat(),
+        "status": "Picking", # Atölyede Kesimde
+        "cargoProviderName": "Yurtiçi Kargo",
+        "cargoTrackingNumber": "4239871234",
+        "lines": [
+            {
+                "lineId": 4,
+                "barcode": "STOR-BRIL-01-160-220",
+                "productName": "Brillant Karartmalı Zebra Stor Perde",
+                "productSize": "160 x 220 cm",
+                "color": "Gri",
+                "quantity": 1,
+                "price": 749.90,
+                "fabricType": "Zebra Kumaş",
+                "calculatedM2": 3.52 # 1.6 x 2.2 = 3.52 m²
+            }
+        ]
+    }
+]
+
 DEMO_PRODUCTS = [
     {
         "model_code": "PERDE-TAC-JAKAR-01",
@@ -72,12 +165,36 @@ DEMO_PRODUCTS = [
 
 class TrendyolClient:
     """
-    Trendyol Ürün V2 ve Entegrasyon API İstemcisi
+    Trendyol Ürün V2 ve Sipariş (getShipmentPackages) API İstemcisi
     Resmi API Gateway: https://apigw.trendyol.com/integration
     """
     API_GATEWAY = "https://apigw.trendyol.com/integration"
     
-    # 1. Marka Listesi (V1-V2)
+    # 1. Sipariş Paketlerini Çekme (getShipmentPackages)
+    @staticmethod
+    async def get_shipment_packages(
+        supplier_id: str,
+        api_key: str,
+        api_secret: str,
+        status: Optional[str] = None,
+        is_mock: bool = True
+    ) -> List[Dict[str, Any]]:
+        if is_mock:
+            if status:
+                return [o for o in DEMO_ORDERS if o["status"].lower() == status.lower()]
+            return DEMO_ORDERS
+
+        url = f"https://api.trendyol.com/sapigw/suppliers/{supplier_id}/orders"
+        params = {"status": status} if status else {}
+        auth = (api_key, api_secret)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params, auth=auth, headers={"User-Agent": f"{supplier_id} - SelfIntegration"}, timeout=15.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("content", [])
+            return DEMO_ORDERS
+
+    # 2. Marka Listesi (V1-V2)
     @staticmethod
     async def get_brands(name: Optional[str] = None, is_mock: bool = True) -> List[Dict[str, Any]]:
         if is_mock:
@@ -93,7 +210,7 @@ class TrendyolClient:
                 return resp.json().get("brands", [])
             return TRENDYOL_PERDE_BRANDS
 
-    # 2. Kategori Ağacı (V1-V2)
+    # 3. Kategori Ağacı (V1-V2)
     @staticmethod
     async def get_categories(is_mock: bool = True) -> List[Dict[str, Any]]:
         if is_mock:
@@ -106,7 +223,7 @@ class TrendyolClient:
                 return resp.json().get("categories", [])
             return TRENDYOL_PERDE_CATEGORIES
 
-    # 3. Kategori Özellik Listesi V2
+    # 4. Kategori Özellik Listesi V2
     @staticmethod
     async def get_category_attributes(category_id: int, is_mock: bool = True) -> List[Dict[str, Any]]:
         if is_mock:
@@ -133,17 +250,6 @@ class TrendyolClient:
                         {"id": 14, "name": "Vizon"},
                         {"id": 15, "name": "Gri"}
                     ]
-                },
-                {
-                    "attribute": {"id": 102, "name": "Materyal"},
-                    "required": False,
-                    "allowCustom": True,
-                    "attributeValues": [
-                        {"id": 20, "name": "Polyester"},
-                        {"id": 21, "name": "Keten"},
-                        {"id": 22, "name": "Saten"},
-                        {"id": 23, "name": "Jakar"}
-                    ]
                 }
             ]
 
@@ -154,7 +260,7 @@ class TrendyolClient:
                 return resp.json().get("categoryAttributes", [])
             return []
 
-    # 4. Ürün Yaratma V2 (POST /v2/products)
+    # 5. Ürün Yaratma V2 (POST /v2/products)
     @staticmethod
     async def create_products_v2(
         supplier_id: str,
@@ -163,9 +269,6 @@ class TrendyolClient:
         items: List[Dict[str, Any]],
         is_mock: bool = True
     ) -> Dict[str, Any]:
-        """
-        Trendyol V2 Formatında Ürün & Varyant Oluşturma
-        """
         batch_id = f"BATCH_V2_{uuid.uuid4().hex[:12].upper()}"
 
         if is_mock:
@@ -189,7 +292,7 @@ class TrendyolClient:
             else:
                 raise Exception(f"Trendyol V2 Ürün Yaratma Hatası [{resp.status_code}]: {resp.text}")
 
-    # 5. Toplu İşlem Durumu Kontrolü V2 (getBatchRequestResult)
+    # 6. Toplu İşlem Durumu Kontrolü V2 (getBatchRequestResult)
     @staticmethod
     async def get_batch_request_result(
         supplier_id: str,
@@ -218,7 +321,7 @@ class TrendyolClient:
             else:
                 raise Exception(f"Batch Sorgu Hatası [{resp.status_code}]: {resp.text}")
 
-    # 6. Ürünleri Çekme (Filtreleme)
+    # 7. Ürünleri Çekme (Filtreleme)
     @staticmethod
     async def fetch_products(supplier_id: str, api_key: str, api_secret: str, is_mock: bool = True) -> List[Dict[str, Any]]:
         if is_mock:
@@ -232,7 +335,7 @@ class TrendyolClient:
                 return resp.json().get("content", [])
             return DEMO_PRODUCTS
 
-    # 7. Stok ve Fiyat Güncelleme (updatePriceAndInventory)
+    # 8. Stok ve Fiyat Güncelleme (updatePriceAndInventory)
     @staticmethod
     async def update_price_and_inventory(
         supplier_id: str,
@@ -258,24 +361,3 @@ class TrendyolClient:
                 return resp.json()
             else:
                 raise Exception(f"Trendyol Fiyat Güncelleme Hatası [{resp.status_code}]: {resp.text}")
-
-    # 8. Ürün Buybox Bilgisi Çekme (V1-V2)
-    @staticmethod
-    async def get_buybox_information(
-        supplier_id: str,
-        api_key: str,
-        api_secret: str,
-        barcodes: List[str],
-        is_mock: bool = True
-    ) -> List[Dict[str, Any]]:
-        if is_mock:
-            return [{"barcode": b, "hasBuybox": True, "buyboxPrice": 299.90} for b in barcodes]
-
-        url = f"{TrendyolClient.API_GATEWAY}/product/sellers/{supplier_id}/products/buybox-information"
-        payload = {"barcodes": barcodes}
-        auth = (api_key, api_secret)
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, auth=auth, timeout=10.0)
-            if resp.status_code == 200:
-                return resp.json()
-            return []
