@@ -340,13 +340,33 @@ async def create_product_v2(payload: CreateCurtainProductRequestV2, db: Session 
             variant.cost_price = direct_cost
             variant.stock_quantity = stock_q
 
+        # Resim Listesi Hazırlama (Trendyol geçerli public URL ister)
+        image_list = []
+        raw_images = payload.images if (payload.images and len(payload.images) > 0) else ([payload.image_url] if payload.image_url else [])
+        for u in raw_images:
+            if u and isinstance(u, str) and u.strip():
+                # Eğer localhost ise public fallback sağla
+                if "127.0.0.1" in u or "localhost" in u:
+                    image_list.append({"url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80"})
+                else:
+                    image_list.append({"url": u.strip()})
+        if not image_list:
+            image_list = [{"url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80"}]
+
+        # Pile formatı standardizasyonu (Trendyol Excel değerleri)
+        pleat_val = payload.pleat_type or "Normal (1 x 2.5)"
+        if pleat_val == "1x2.5": pleat_val = "Normal (1 x 2.5)"
+        elif pleat_val == "1x3": pleat_val = "Sık (1 x 3)"
+        elif pleat_val == "1x2": pleat_val = "Seyrek (1 x 2)"
+        elif pleat_val == "pilesiz": pleat_val = "Pilesiz (1 x 1)"
+
         # Resmi Trendyol V2 Item Şeması
         v2_item = {
             "barcode": barcode,
             "title": f"{payload.title} {size_lbl}",
             "productMainId": clean_model_code,
             "brandId": payload.brand_id,
-            "categoryId": payload.category_id,
+            "categoryId": payload.category_id or 895,
             "quantity": stock_q,
             "stockCode": barcode,
             "dimensionalWeight": payload.dimensional_weight or 2.0,
@@ -357,18 +377,17 @@ async def create_product_v2(payload: CreateCurtainProductRequestV2, db: Session 
             "vatRate": payload.vat_rate or 10,
             "cargoCompanyId": payload.cargo_company_id or 10,
             "deliveryDuration": payload.delivery_duration or 2,
-            "images": [
-                {"url": payload.image_url or "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80"}
-            ],
+            "images": image_list,
             "attributes": [
-                {
-                    "attributeId": 338, # Ebat / Beden
-                    "customAttributeValue": size_lbl
-                },
-                {
-                    "attributeId": 47, # Renk
-                    "customAttributeValue": payload.color or "Ekru"
-                }
+                {"attributeId": 92, "customAttributeValue": f"{int(w)} x {int(h)}"}, # Boyut/Ebat (Varyant Belirleyici)
+                {"attributeId": 14, "customAttributeValue": payload.material or "Polyester"}, # Materyal
+                {"attributeId": 1101, "customAttributeValue": pleat_val}, # Pile
+                {"attributeId": 18, "customAttributeValue": "1"}, # Parça Sayısı
+                {"attributeId": 258, "customAttributeValue": payload.hanging_type or "Kornişli"}, # Takma Şekli
+                {"attributeId": 33, "customAttributeValue": payload.pattern or "Düz"}, # Desen
+                {"attributeId": 1192, "customAttributeValue": "TR"}, # Menşei
+                {"attributeId": 348, "customAttributeValue": payload.color or "Ekru"}, # Web Color
+                {"attributeId": 47, "customAttributeValue": payload.color or "Ekru"} # Renk
             ]
         }
         v2_items.append(v2_item)

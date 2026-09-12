@@ -1,0 +1,391 @@
+{
+  "id": 895,
+  "name": "Tül Perde",
+  "displayName": "Tül Perde",
+  "categoryAttributes": [
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 92,
+        "name": "Boyut/Ebat"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": true,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1302,
+        "name": "Üçüncül İthalatçı Adres Bilgisi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1296,
+        "name": "Üretici Adres Bilgisi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 841,
+        "name": "Kanat Sayısı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1294,
+        "name": "Üretici Mail Adresi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1333,
+        "name": "Kimyasal Analiz Testi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1298,
+        "name": "İkincil İthalatçı Mail Adresi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1304,
+        "name": "Birincil İthalatçı Adres Bilgisi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1300,
+        "name": "Üçüncül İthalatçı Adı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1198,
+        "name": "Üretici Adı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1216,
+        "name": "Birincil İthalatçı Adı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1334,
+        "name": "Materyal Analiz Testi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1297,
+        "name": "İkincil İthalatçı Adı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 987,
+        "name": "Materyal Bileşeni"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1262,
+        "name": "Paket Derinlik"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1301,
+        "name": "Üçüncül İthalatçı Mail Adresi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 196,
+        "name": "Kullanım Alanı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 338,
+        "name": "Beden"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 14,
+        "name": "Materyal"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1101,
+        "name": "Pile"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": true,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 18,
+        "name": "Parça Sayısı"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1305,
+        "name": "Birincil İthalatçı Mail Adresi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 258,
+        "name": "Takma Şekli"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 33,
+        "name": "Desen"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1099,
+        "name": "Işık Geçirgenliği"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1000,
+        "name": "Yıkama Talimatı"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1264,
+        "name": "Paket Yükseklik"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1192,
+        "name": "Menşei"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 348,
+        "name": "Web Color"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 1299,
+        "name": "İkincil İthalatçı Adres Bilgisi"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": true,
+      "attribute": {
+        "id": 47,
+        "name": "Renk"
+      },
+      "categoryId": 895,
+      "required": true,
+      "varianter": false,
+      "slicer": true,
+      "allowMultipleAttributeValues": false
+    },
+    {
+      "allowCustom": false,
+      "attribute": {
+        "id": 1263,
+        "name": "Paket Genişlik"
+      },
+      "categoryId": 895,
+      "required": false,
+      "varianter": false,
+      "slicer": false,
+      "allowMultipleAttributeValues": false
+    }
+  ]
+}

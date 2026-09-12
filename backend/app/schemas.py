@@ -81,16 +81,23 @@ class CreateCurtainProductRequestV2(BaseModel):
     title: str
     brand_id: int = 361
     brand_name: str = "Taç"
-    category_id: int = 2045
+    category_id: int = 895
     category_name: str = "Tül Perde"
     model_code: str
     description: Optional[str] = "<p>Özel ölçü kaliteli perde. Yıkamaya dayanıklı, dökümlü ve ütü istemez kumaş.</p>"
     color: Optional[str] = "Ekru"
+    material: Optional[str] = "Polyester"
+    hanging_type: Optional[str] = "Kornişli"
+    pattern: Optional[str] = "Düz"
+    light_transmittance: Optional[str] = "Şeffaf"
+    usage_area: Optional[str] = "Salon / Oturma Odası"
+    pleat_type: Optional[str] = "Normal (1 x 2.5)"
     cargo_company_id: Optional[int] = 10 # Trendyol Express
     delivery_duration: Optional[int] = 2 # 2 gün
     vat_rate: Optional[int] = 10 # %10 KDV
     dimensional_weight: Optional[float] = 2.0 # Desi
     image_url: Optional[str] = None
+    images: Optional[List[str]] = []
     variants: List[Dict[str, Any]]
 
 # Toplu Fiyat Ayarlama Şemaları
