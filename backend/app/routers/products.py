@@ -1,6 +1,11 @@
+import os
+import uuid
+import openpyxl
+from io import BytesIO
 import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from fastapi.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -29,6 +34,110 @@ def get_products(db: Session = Depends(get_db)):
         asyncio.create_task(sync_products_from_source(db))
         products = db.query(Product).all()
     return products
+
+@router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...), request: Request = None):
+    """
+    Kullanıcının bilgisayarından perde fotoğraflarını yükler ve URL döner.
+    """
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Desteklenmeyen dosya formatı. Lütfen JPG, PNG veya WEBP yükleyin.")
+
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    unique_filename = f"curtain_{uuid.uuid4().hex[:10]}{ext}"
+    file_path = os.path.join(uploads_dir, unique_filename)
+
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    base_url = str(request.base_url) if request else "http://127.0.0.1:8000/"
+    image_url = f"{base_url.rstrip('/')}/uploads/{unique_filename}"
+
+    return {
+        "status": "success",
+        "filename": unique_filename,
+        "url": image_url,
+        "original_name": file.filename
+    }
+
+@router.post("/export-excel")
+async def export_trendyol_excel(payload: CreateCurtainProductRequestV2):
+    """
+    Trendyol resmi 'tul-perde.xlsx' şablonuna birebir uygun 57 sütunlu Excel dosyası üretir.
+    """
+    template_path = r"C:\Users\murat\Downloads\tul-perde.xlsx"
+    clean_model_code = payload.model_code.strip().upper().replace(" ", "-")
+
+    if os.path.exists(template_path):
+        wb = openpyxl.load_workbook(template_path)
+    else:
+        wb = openpyxl.Workbook()
+        ws_default = wb.active
+        ws_default.title = "Ürünlerinizi Burada Listeleyin"
+
+    ws = wb["Ürünlerinizi Burada Listeleyin"] if "Ürünlerinizi Burada Listeleyin" in wb.sheetnames else wb.active
+
+    # Row 1 is header, start inserting data from Row 2
+    row_idx = 2
+    for item in payload.variants:
+        w = float(item.get("width_cm", 100))
+        h = float(item.get("height_cm", 200))
+        size_lbl = item.get("size_label", f"{int(w)} x {int(h)}")
+        # Format for Trendyol Boyut/Ebat column (e.g. '100 x 260')
+        boyut_ebat = f"{int(w)} x {int(h)}"
+        barcode = item.get("barcode") or f"{clean_model_code}-{int(w)}-{int(h)}"
+        sale_p = float(item.get("sale_price", 299.90))
+        list_p = round(sale_p * 1.25, 2)
+        stock_q = int(item.get("stock_quantity", 50))
+
+        # 57 Columns mapping:
+        ws.cell(row=row_idx, column=1, value=barcode) # Barkod
+        ws.cell(row=row_idx, column=2, value=clean_model_code) # Model Kodu
+        ws.cell(row=row_idx, column=3, value=payload.brand_name or "Taç") # Marka
+        ws.cell(row=row_idx, column=4, value="895") # Kategori (Tül Perde: 895)
+        ws.cell(row=row_idx, column=5, value="TRY") # Para Birimi
+        ws.cell(row=row_idx, column=6, value=f"{payload.title} {size_lbl}") # Ürün Adı
+        ws.cell(row=row_idx, column=7, value=payload.description or f"<p>{payload.title} birinci kalite dikişli perde.</p>") # Ürün Açıklaması
+        ws.cell(row=row_idx, column=8, value=list_p) # Piyasa Satış Fiyatı
+        ws.cell(row=row_idx, column=9, value=sale_p) # Trendyol Satış Fiyatı
+        ws.cell(row=row_idx, column=10, value=stock_q) # Stok Adedi
+        ws.cell(row=row_idx, column=11, value=barcode) # Stok Kodu
+        ws.cell(row=row_idx, column=12, value=payload.vat_rate or 10) # KDV Oranı
+        ws.cell(row=row_idx, column=13, value=0) # ÖTV Oranı
+        ws.cell(row=row_idx, column=14, value=payload.dimensional_weight or 2) # Desi
+        ws.cell(row=row_idx, column=16, value=payload.image_url or "") # Görsel 1
+        ws.cell(row=row_idx, column=24, value=payload.delivery_duration or 3) # Sevkiyat Süresi
+        ws.cell(row=row_idx, column=26, value=boyut_ebat) # Boyut/Ebat (Mavi Varyant Sütunu)
+        ws.cell(row=row_idx, column=29, value="1") # Kanat Sayısı
+        ws.cell(row=row_idx, column=42, value="Salon / Oturma Odası") # Kullanım Alanı
+        ws.cell(row=row_idx, column=43, value=boyut_ebat) # Beden
+        ws.cell(row=row_idx, column=44, value="Polyester") # Materyal
+        ws.cell(row=row_idx, column=45, value="Normal (1 x 2.5)") # Pile
+        ws.cell(row=row_idx, column=46, value="1") # Parça Sayısı
+        ws.cell(row=row_idx, column=48, value="Kornişli") # Takma Şekli
+        ws.cell(row=row_idx, column=49, value="Düz") # Desen
+        ws.cell(row=row_idx, column=50, value="Şeffaf") # Işık Geçirgenliği
+        ws.cell(row=row_idx, column=53, value="TR") # Menşei
+        ws.cell(row=row_idx, column=54, value=payload.color or "Ekru") # Web Color
+        ws.cell(row=row_idx, column=56, value=payload.color or "Ekru") # Renk
+        
+        row_idx += 1
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    filename = f"Trendyol_Yukleme_{clean_model_code}.xlsx"
+    return Response(
+        content=stream.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @router.get("/brands")
 async def get_brands(name: Optional[str] = None, db: Session = Depends(get_db)):

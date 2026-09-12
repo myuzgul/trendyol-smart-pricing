@@ -27,6 +27,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Statik Dosya Sunucusu (Yüklenen Fotoğraflar İçin)
+from fastapi.staticfiles import StaticFiles
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
 # Router'ları ekle
 app.include_router(settings.router)
 app.include_router(products.router)

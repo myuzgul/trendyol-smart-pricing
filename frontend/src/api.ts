@@ -113,6 +113,28 @@ export const api = {
     }
     return res.json();
   },
+  uploadImage: async (file: File): Promise<{ status: string; url: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${BASE_URL}/products/upload-image`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Fotoğraf yüklenemedi');
+    }
+    return res.json();
+  },
+  exportExcel: async (data: any): Promise<Blob> => {
+    const res = await fetch(`${BASE_URL}/products/export-excel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Excel dosyası oluşturulamadı');
+    return res.blob();
+  },
 
   // Bulk Pricing & Trendyol Sync
   getCategories: async (): Promise<string[]> => {

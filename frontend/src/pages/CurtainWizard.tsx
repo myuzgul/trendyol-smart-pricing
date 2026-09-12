@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
   Send, 
@@ -22,7 +22,12 @@ import {
   Building2,
   Clock,
   Palette,
-  Box
+  Box,
+  Upload,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  Star,
+  X
 } from 'lucide-react';
 import { CurtainCalculateBatchRequest, CurtainCalculateItemResult, CurtainSizeInput } from '../types';
 import { api } from '../api';
@@ -76,11 +81,24 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
   const [desi, setDesi] = useState<number>(2.0);
   const [color, setColor] = useState<string>('Ekru');
 
+  // Trendyol Official Attributes
+  const [material, setMaterial] = useState<string>('Polyester');
+  const [hangingType, setHangingType] = useState<string>('Kornişli');
+  const [pattern, setPattern] = useState<string>('Düz');
+  const [lightTransmittance, setLightTransmittance] = useState<string>('Şeffaf');
+  const [usageArea, setUsageArea] = useState<string>('Salon / Oturma Odası');
+
   // Product Basic Info
   const [productTitle, setProductTitle] = useState<string>('Taç Ekstraforlu Premium Jakar Fon Perde');
   const [modelCode, setModelCode] = useState<string>('PERDE-TAC-01');
-  const [imageUrl, setImageUrl] = useState<string>('https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80');
   const [description, setDescription] = useState<string>('<p>Özel ölçü lüks perde. Dökümlü kumaş, yıkamaya dayanıklı ve kırışmaz.</p>');
+
+  // Photos State
+  const [images, setImages] = useState<string[]>([
+    'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80'
+  ]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculation Parameters
   const [unitPrice, setUnitPrice] = useState<number>(120.0);
@@ -106,6 +124,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
   const [calculatedItems, setCalculatedItems] = useState<CurtainCalculateItemResult[]>([]);
   const [calculating, setCalculating] = useState<boolean>(false);
   const [creating, setCreating] = useState<boolean>(false);
+  const [exportingExcel, setExportingExcel] = useState<boolean>(false);
   const [lastBatchId, setLastBatchId] = useState<string | null>(null);
   const [batchStatusResult, setBatchStatusResult] = useState<any>(null);
   const [checkingBatch, setCheckingBatch] = useState<boolean>(false);
@@ -136,22 +155,30 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
       setModelCode('STOR-BRIL-01');
       setSelectedBrandId(482);
       setSelectedBrandName('Brillant');
+      setLightTransmittance('Blackout');
+      setMaterial('Polyester');
     } else if (categoryType === 'fon') {
       setSizes(STANDARD_TUL_FON_SIZES);
-      setProductTitle('Taç Dokuma Lüks Fon Perde');
+      setProductTitle('Taç Dokuma Lüks Jakar Fon Perde');
       setModelCode('FON-TAC-01');
       setSelectedBrandId(361);
       setSelectedBrandName('Taç');
+      setLightTransmittance('Oda Karanlığı');
+      setMaterial('Keten');
     } else if (categoryType === 'karartma_saten') {
       setSizes(STANDARD_TUL_FON_SIZES);
       setProductTitle('Blackout Karartma & Saten Güneşlik Perde');
       setModelCode('BLACKOUT-01');
+      setLightTransmittance('Blackout');
+      setMaterial('Polyester');
     } else {
       setSizes(STANDARD_TUL_FON_SIZES);
       setProductTitle('Brillant Keten Dökümlü Grek Tül Perde');
       setModelCode('TUL-BRIL-01');
       setSelectedBrandId(482);
       setSelectedBrandName('Brillant');
+      setLightTransmittance('Şeffaf');
+      setMaterial('Keten');
     }
   }, [categoryType]);
 
@@ -212,6 +239,76 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
     setSizes(sizes.filter((_, i) => i !== index));
   };
 
+  // Image Upload Handlers
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      const uploadPromises = Array.from(files).map(file => api.uploadImage(file));
+      const uploadedResults = await Promise.all(uploadPromises);
+      const newUrls = uploadedResults.map(r => r.url);
+      setImages(prev => [...prev, ...newUrls].slice(0, 8)); // Max 8 images for Trendyol
+    } catch (err: any) {
+      alert('Fotoğraf yükleme hatası: ' + err.message);
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const setCoverImage = (index: number) => {
+    if (index === 0) return;
+    const newImgs = [...images];
+    const [selected] = newImgs.splice(index, 1);
+    newImgs.unshift(selected);
+    setImages(newImgs);
+  };
+
+  const removeImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
+  // Build Payload Helper
+  const buildProductPayload = () => {
+    const categoryId = categoryType === 'tul' ? 895 : categoryType === 'fon' ? 2046 : categoryType === 'stor_zebra' ? 2047 : 2048;
+
+    const variants = calculatedItems.map(item => ({
+      width_cm: item.width_cm,
+      height_cm: item.height_cm,
+      size_label: `${int_val(item.width_cm)} x ${int_val(item.height_cm)}`,
+      barcode: `${modelCode.trim().toUpperCase()}-${int_val(item.width_cm)}-${int_val(item.height_cm)}`,
+      sale_price: item.sale_price,
+      min_price: item.min_price,
+      direct_cost: item.direct_cost,
+      stock_quantity: 50
+    }));
+
+    return {
+      title: productTitle,
+      brand_id: selectedBrandId,
+      brand_name: selectedBrandName,
+      category_id: categoryId,
+      category_name: getCategoryLabel(categoryType),
+      model_code: modelCode,
+      description: description,
+      color: color,
+      material: material,
+      hanging_type: hangingType,
+      pattern: pattern,
+      light_transmittance: lightTransmittance,
+      usage_area: usageArea,
+      cargo_company_id: selectedCargoCompanyId,
+      delivery_duration: deliveryDuration,
+      vat_rate: vatRate,
+      dimensional_weight: desi,
+      image_url: images[0] || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80',
+      images: images,
+      variants: variants
+    };
+  };
+
   // Push to Trendyol V2 (createProducts V2)
   const handleCreateOnTrendyolV2 = async () => {
     if (calculatedItems.length === 0) return;
@@ -219,36 +316,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
     setSuccessBanner(null);
     setBatchStatusResult(null);
     try {
-      const categoryId = categoryType === 'tul' ? 2045 : categoryType === 'fon' ? 2046 : categoryType === 'stor_zebra' ? 2047 : 2048;
-
-      const variants = calculatedItems.map(item => ({
-        width_cm: item.width_cm,
-        height_cm: item.height_cm,
-        size_label: item.size_label,
-        barcode: `${modelCode.trim().toUpperCase()}-${int_val(item.width_cm)}-${int_val(item.height_cm)}`,
-        sale_price: item.sale_price,
-        min_price: item.min_price,
-        direct_cost: item.direct_cost,
-        stock_quantity: 50
-      }));
-
-      const payload = {
-        title: productTitle,
-        brand_id: selectedBrandId,
-        brand_name: selectedBrandName,
-        category_id: categoryId,
-        category_name: getCategoryLabel(categoryType),
-        model_code: modelCode,
-        description: description,
-        color: color,
-        cargo_company_id: selectedCargoCompanyId,
-        delivery_duration: deliveryDuration,
-        vat_rate: vatRate,
-        dimensional_weight: desi,
-        image_url: imageUrl,
-        variants: variants
-      };
-
+      const payload = buildProductPayload();
       const res = await api.createProductV2(payload);
       setSuccessBanner(res.message);
       if (res.batch_request_id) {
@@ -259,6 +327,28 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
       alert('Trendyol V2 Ürün Yükleme Hatası: ' + err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Export official Trendyol Excel template (.xlsx)
+  const handleExportExcel = async () => {
+    if (calculatedItems.length === 0) return;
+    setExportingExcel(true);
+    try {
+      const payload = buildProductPayload();
+      const blob = await api.exportExcel(payload);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Trendyol_Sablon_${modelCode.trim().toUpperCase()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert('Excel export hatası: ' + err.message);
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -294,23 +384,37 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-orange-400 mb-1">
             <PackagePlus className="w-4 h-4" />
-            <span>Trendyol Ürün V2 Resmi Entegrasyonu</span>
+            <span>Trendyol Ürün V2 & Resmi Excel Entegrasyonu</span>
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Akıllı Perde Ürün & Varyant Sihirbazı (V2)</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Akıllı Perde Ürün & Varyant Sihirbazı</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Trendyol V2 API Gateway standartlarına uygun; marka, KDV, kargo, desi ve renk tanımlarıyla tek tıkla ürün açın.
+            Trendyol V2 API standartlarına ve resmi Excel şablonuna tam uyumlu; fotoğraf yükleme, dikiş payı ve kâr marjı hesaplamaları.
           </p>
         </div>
 
-        {/* Primary Action Button */}
-        <button
-          onClick={handleCreateOnTrendyolV2}
-          disabled={creating || calculatedItems.length === 0}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs shadow-xl shadow-orange-500/25 flex items-center gap-2.5 transition disabled:opacity-50"
-        >
-          <Send className={`w-4 h-4 ${creating ? 'animate-bounce' : ''}`} />
-          <span>{creating ? 'Trendyol V2\'ye Aktarılıyor...' : `Tüm Ölçülerle (${calculatedItems.length}) Trendyol V2'ye Yükle`}</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Excel Export Button */}
+          <button
+            onClick={handleExportExcel}
+            disabled={exportingExcel || calculatedItems.length === 0}
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs border border-slate-700 flex items-center gap-2 transition disabled:opacity-50"
+            title="Trendyol'un resmi 57 sütunlu Excel şablonunu doldurarak indir"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span>{exportingExcel ? 'Excel Hazırlanıyor...' : 'Trendyol Excel Şablonu İndir (.xlsx)'}</span>
+          </button>
+
+          {/* Primary Trendyol Push Button */}
+          <button
+            onClick={handleCreateOnTrendyolV2}
+            disabled={creating || calculatedItems.length === 0}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs shadow-xl shadow-orange-500/25 flex items-center gap-2.5 transition disabled:opacity-50"
+          >
+            <Send className={`w-4 h-4 ${creating ? 'animate-bounce' : ''}`} />
+            <span>{creating ? 'Trendyol V2\'ye Aktarılıyor...' : `Tüm Ölçülerle (${calculatedItems.length}) Trendyol V2'ye Yükle`}</span>
+          </button>
+        </div>
       </div>
 
       {/* Success & Batch Status Banner */}
@@ -421,17 +525,104 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
         </button>
       </div>
 
-      {/* Step 2: Trendyol V2 Meta & Attributes Setup */}
+      {/* Step 2: Photo Upload & Gallery Management */}
+      <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 space-y-4 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-300">
+            <ImageIcon className="w-4 h-4 text-orange-400" />
+            <span>1. Ürün Fotoğrafları ({images.length}/8 Görsel)</span>
+          </div>
+          <span className="text-[11px] text-slate-400">Trendyol en fazla 8 görsel kabul eder (1. görsel kapak resmi)</span>
+        </div>
+
+        {/* Upload Zone */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Drag & Drop / File Select Box */}
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="p-6 border-2 border-dashed border-slate-700 hover:border-orange-500 rounded-2xl bg-slate-950/60 hover:bg-slate-950 transition cursor-pointer flex flex-col items-center justify-center text-center group"
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              multiple
+              accept="image/*"
+              className="hidden"
+            />
+            <div className="p-3 rounded-full bg-orange-500/10 text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition mb-2">
+              <Upload className="w-6 h-6" />
+            </div>
+            <p className="text-xs font-bold text-slate-200">
+              {isUploadingPhoto ? 'Fotoğraf Yükleniyor...' : 'Bilgisayardan Fotoğraf Seç'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-1">veya fotoğrafları buraya sürükleyip bırakın (JPG, PNG, WEBP)</p>
+          </div>
+
+          {/* Photo Gallery Grid */}
+          <div className="lg:col-span-3 flex flex-wrap gap-3 items-center">
+            {images.map((imgUrl, idx) => (
+              <div 
+                key={idx}
+                className="relative group w-28 h-28 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shadow-md flex-shrink-0"
+              >
+                <img 
+                  src={imgUrl} 
+                  alt={`Ürün Görseli ${idx + 1}`} 
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Badge for Main Cover */}
+                {idx === 0 ? (
+                  <span className="absolute top-1.5 left-1.5 bg-orange-500 text-slate-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 fill-current" />
+                    Kapak
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setCoverImage(idx)}
+                    className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-orange-500 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition"
+                    title="Bu görseli kapak resmi yap"
+                  >
+                    Kapak Yap
+                  </button>
+                )}
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => removeImage(idx)}
+                  className="absolute top-1.5 right-1.5 bg-rose-600/80 hover:bg-rose-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition"
+                  title="Görseli sil"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+
+                <div className="absolute bottom-1 right-1.5 bg-slate-950/80 px-1 rounded text-[9px] text-slate-300 font-mono">
+                  #{idx + 1}
+                </div>
+              </div>
+            ))}
+
+            {images.length === 0 && (
+              <div className="text-xs text-slate-500 italic p-4">
+                Henüz ürün fotoğrafı eklenmedi. En az 1 görsel eklemeniz önerilir.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Step 3: Trendyol V2 Meta & Attributes Setup */}
       <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 space-y-6 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-300">
             <Building2 className="w-4 h-4 text-orange-400" />
-            <span>1. Trendyol V2 Ürün Özellikleri & Meta Bilgileri</span>
+            <span>2. Trendyol V2 & Excel Özellik Bilgileri (Resmi Standartlar)</span>
           </div>
-          <span className="text-[11px] text-slate-500 font-mono">POST /v2/products Uyumlu</span>
+          <span className="text-[11px] text-slate-500 font-mono">POST /v2/products & Excel Uyumlu</span>
         </div>
 
-        {/* Row 1: Title, Model, Brand, Color */}
+        {/* Row 1: Title, Model, Brand */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <div className="md:col-span-2">
             <label className="block text-slate-400 font-medium mb-1.5">Trendyol Ürün Başlığı (title):</label>
@@ -472,7 +663,84 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
           </div>
         </div>
 
-        {/* Row 2: Cargo, DeliveryDuration, VAT, Desi, Color */}
+        {/* Row 2: Perde Resmi Nitelikleri (Materyal, Takma Şekli, Desen, Işık Geçirgenliği, Kullanım Alanı) */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Kumaş Materyali:</label>
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Polyester">Polyester (Standart)</option>
+              <option value="Keten">Keten</option>
+              <option value="Pamuk">Pamuk</option>
+              <option value="%100 Pamuk">%100 Pamuk</option>
+              <option value="Dantel">Dantel</option>
+              <option value="Mikrofiber">Mikrofiber</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Takma Şekli:</label>
+            <select
+              value={hangingType}
+              onChange={(e) => setHangingType(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Kornişli">Kornişli</option>
+              <option value="Rustik">Rustik</option>
+              <option value="Halkalı">Halkalı</option>
+              <option value="Briz Çubuğu">Briz Çubuğu</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Desen:</label>
+            <select
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Düz">Düz</option>
+              <option value="Armürlü">Armürlü</option>
+              <option value="Çizgili">Çizgili</option>
+              <option value="Çiçekli">Çiçekli</option>
+              <option value="Geometrik">Geometrik</option>
+              <option value="Eskitme">Eskitme</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Işık Geçirgenliği:</label>
+            <select
+              value={lightTransmittance}
+              onChange={(e) => setLightTransmittance(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Şeffaf">Şeffaf (Tül Standart)</option>
+              <option value="Oda Karanlığı">Oda Karanlığı</option>
+              <option value="Blackout">Blackout (Tam Karartma)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-medium mb-1.5">Kullanım Alanı:</label>
+            <select
+              value={usageArea}
+              onChange={(e) => setUsageArea(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 font-medium"
+            >
+              <option value="Salon / Oturma Odası">Salon / Oturma Odası</option>
+              <option value="Yatak Odası">Yatak Odası</option>
+              <option value="Mutfak">Mutfak</option>
+              <option value="Antre / Hol">Antre / Hol</option>
+              <option value="Bebek / Çocuk Odası">Bebek / Çocuk Odası</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Row 3: Cargo, DeliveryDuration, VAT, Desi, Color */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
           <div>
             <label className="block text-slate-400 font-medium mb-1.5">Kargo Firması:</label>
@@ -525,7 +793,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
           </div>
 
           <div>
-            <label className="block text-slate-400 font-medium mb-1.5">Renk Özelliği:</label>
+            <label className="block text-slate-400 font-medium mb-1.5">Renk Özelliği (Web Color):</label>
             <select
               value={color}
               onChange={(e) => setColor(e.target.value)}
