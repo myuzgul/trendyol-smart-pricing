@@ -5,6 +5,7 @@ import uuid
 
 # Popüler Perde Markaları & Kategorileri (Trendyol V2 Standartları)
 TRENDYOL_PERDE_BRANDS = [
+    {"id": 1091268, "name": "PERDEmarket"},
     {"id": 361, "name": "Taç"},
     {"id": 482, "name": "Brillant"},
     {"id": 1052, "name": "Linens"},
@@ -182,7 +183,7 @@ class TrendyolClient:
                 return [o for o in DEMO_ORDERS if o["status"].lower() == status.lower()]
             return DEMO_ORDERS
 
-        url = f"https://api.trendyol.com/sapigw/suppliers/{supplier_id}/orders"
+        url = f"{TrendyolClient.API_GATEWAY}/order/sellers/{supplier_id}/orders"
         params = {"status": status} if status else {}
         auth = (api_key, api_secret)
         async with httpx.AsyncClient() as client:
@@ -325,7 +326,7 @@ class TrendyolClient:
         if is_mock:
             return DEMO_PRODUCTS
         
-        url = f"https://api.trendyol.com/sapigw/suppliers/{supplier_id}/products"
+        url = f"{TrendyolClient.API_GATEWAY}/product/sellers/{supplier_id}/products?page=0&size=100"
         auth = (api_key, api_secret)
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, auth=auth, headers={"User-Agent": f"{supplier_id} - SelfIntegration"}, timeout=15.0)

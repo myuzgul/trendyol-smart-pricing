@@ -447,37 +447,70 @@ async def sync_products_from_source(db: Session):
     variant_count = 0
 
     for item in raw_products:
-        model_code = item.get("model_code") or item.get("productCode", "DEMO-01")
-        prod = db.query(Product).filter(Product.model_code == model_code).first()
-        if not prod:
-            prod = Product(
-                seller_id=seller.id,
-                model_code=model_code,
-                title=item.get("title", "Örnek Ürün"),
-                brand=item.get("brand", "Taç"),
-                category_name=item.get("category_name", "Perde"),
-                image_url=item.get("image_url")
-            )
-            db.add(prod)
-            db.commit()
-            db.refresh(prod)
-            synced_count += 1
+        # 1. Gerçek Trendyol API'den gelen öğe formatı (her öğe bir barkoddur)
+        if "barcode" in item and ("productMainId" in item or "productCode" in item):
+            model_code = item.get("productMainId") or str(item.get("productCode") or "TY-PROD")
+            barcode = item.get("barcode")
+            title = item.get("title", "Trendyol Perde")
+            brand = item.get("brand", "PERDEmarket")
+            category_name = item.get("categoryName", "Perde")
+            images = item.get("images", [])
+            img_url = images[0].get("url") if (images and len(images) > 0) else None
 
-        for var_data in item.get("variants", []):
-            barcode = var_data.get("barcode")
+            prod = db.query(Product).filter(Product.model_code == model_code).first()
+            if not prod:
+                prod = Product(
+                    seller_id=seller.id,
+                    model_code=model_code,
+                    title=title,
+                    brand=brand,
+                    category_name=category_name,
+                    image_url=img_url
+                )
+                db.add(prod)
+                db.commit()
+                db.refresh(prod)
+                synced_count += 1
+
+            # Varyant Özellikleri (En/Boy çıkarma)
+            w_cm = 150.0
+            h_cm = 260.0
+            size_name = "Standart"
+            for attr in item.get("attributes", []):
+                if attr.get("attributeName") == "Boyut/Ebat" or attr.get("attributeId") == 92:
+                    val = str(attr.get("attributeValue", ""))
+                    if "x" in val:
+                        parts = val.split("x")
+                        try:
+                            w_cm = float(parts[0].strip())
+                            h_cm = float(parts[1].strip())
+                            size_name = f"{int(w_cm)} x {int(h_cm)} cm"
+                        except Exception:
+                            size_name = val
+                    else:
+                        size_name = val
+
+            sale_p = float(item.get("salePrice") or item.get("listPrice") or 299.90)
+            if sale_p <= 0:
+                sale_p = 299.90
+            stock_q = int(item.get("quantity") or 0)
+
             variant = db.query(ProductVariant).filter(ProductVariant.barcode == barcode).first()
             if not variant:
                 variant = ProductVariant(
                     product_id=prod.id,
                     barcode=barcode,
-                    variant_name=var_data.get("name", "Standart"),
-                    width_cm=float(var_data.get("w", 140)),
-                    height_cm=float(var_data.get("h", 260)),
-                    current_price=float(var_data.get("price", 299.90)),
-                    cost_price=float(var_data.get("cost", 120.0)),
-                    min_price=float(var_data.get("min_price", 219.90)),
-                    max_price=float(var_data.get("max_price", 450.0)),
-                    stock_quantity=int(var_data.get("stock", 50))
+                    variant_name=size_name,
+                    width_cm=w_cm,
+                    height_cm=h_cm,
+                    fabric_type=category_name,
+                    stock_quantity=stock_q,
+                    current_price=sale_p,
+                    cost_price=round(sale_p * 0.40, 2),
+                    min_price=round(sale_p * 0.75, 2),
+                    max_price=round(sale_p * 1.5, 2),
+                    cargo_cost=45.0,
+                    commission_rate=0.20
                 )
                 db.add(variant)
                 db.commit()
@@ -490,11 +523,66 @@ async def sync_products_from_source(db: Session):
                     strategy="beat_by_diff",
                     price_diff=0.50,
                     has_buybox=True,
-                    winner_seller_name="Bizim Mağaza",
+                    winner_seller_name="PERDEmarket",
                     last_buybox_price=variant.current_price
                 )
                 db.add(buybox)
                 db.commit()
+            else:
+                variant.current_price = sale_p
+                variant.stock_quantity = stock_q
+                db.commit()
+
+        # 2. Demo Mock Formatı (variants listesi içeren nesneler)
+        else:
+            model_code = item.get("model_code") or item.get("productCode", "DEMO-01")
+            prod = db.query(Product).filter(Product.model_code == model_code).first()
+            if not prod:
+                prod = Product(
+                    seller_id=seller.id,
+                    model_code=model_code,
+                    title=item.get("title", "Örnek Ürün"),
+                    brand=item.get("brand", "Taç"),
+                    category_name=item.get("category_name", "Perde"),
+                    image_url=item.get("image_url")
+                )
+                db.add(prod)
+                db.commit()
+                db.refresh(prod)
+                synced_count += 1
+
+            for var_data in item.get("variants", []):
+                barcode = var_data.get("barcode")
+                variant = db.query(ProductVariant).filter(ProductVariant.barcode == barcode).first()
+                if not variant:
+                    variant = ProductVariant(
+                        product_id=prod.id,
+                        barcode=barcode,
+                        variant_name=var_data.get("name", "Standart"),
+                        width_cm=float(var_data.get("w", 140)),
+                        height_cm=float(var_data.get("h", 260)),
+                        current_price=float(var_data.get("price", 299.90)),
+                        cost_price=float(var_data.get("cost", 120.0)),
+                        min_price=float(var_data.get("min_price", 219.90)),
+                        max_price=float(var_data.get("max_price", 450.0)),
+                        stock_quantity=int(var_data.get("stock", 50))
+                    )
+                    db.add(variant)
+                    db.commit()
+                    db.refresh(variant)
+                    variant_count += 1
+
+                    buybox = BuyboxTracking(
+                        variant_id=variant.id,
+                        is_active=True,
+                        strategy="beat_by_diff",
+                        price_diff=0.50,
+                        has_buybox=True,
+                        winner_seller_name="Bizim Mağaza",
+                        last_buybox_price=variant.current_price
+                    )
+                    db.add(buybox)
+                    db.commit()
 
     return {
         "status": "success",
