@@ -272,7 +272,7 @@ export const CurtainWizard: React.FC<CurtainWizardProps> = ({ onProductCreated }
 
   // Build Payload Helper
   const buildProductPayload = () => {
-    const categoryId = categoryType === 'tul' ? 895 : categoryType === 'fon' ? 2046 : categoryType === 'stor_zebra' ? 2047 : 2048;
+    const categoryId = categoryType === 'tul' ? 895 : categoryType === 'fon' ? 1848 : categoryType === 'stor_zebra' ? 1849 : 1848;
 
     const variants = calculatedItems.map(item => ({
       width_cm: item.width_cm,

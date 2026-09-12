@@ -15,12 +15,10 @@ TRENDYOL_PERDE_BRANDS = [
 ]
 
 TRENDYOL_PERDE_CATEGORIES = [
-    {"id": 2045, "name": "Tül Perde", "parentId": 1020},
-    {"id": 2046, "name": "Fon Perde", "parentId": 1020},
-    {"id": 2047, "name": "Stor & Zebra Perde", "parentId": 1020},
-    {"id": 2048, "name": "Karartma & Blackout Perde", "parentId": 1020},
-    {"id": 2049, "name": "Güneşlik & Saten Perde", "parentId": 1020},
-    {"id": 2050, "name": "Dikey & Jaluzi Perde", "parentId": 1020}
+    {"id": 895, "name": "Tül Perde", "parentId": 1847},
+    {"id": 1848, "name": "Fon Perde", "parentId": 1847},
+    {"id": 1849, "name": "Stor & Zebra Perde", "parentId": 1847},
+    {"id": 1848, "name": "Karartma & Blackout Perde", "parentId": 1847}
 ]
 
 TRENDYOL_CARGO_COMPANIES = [

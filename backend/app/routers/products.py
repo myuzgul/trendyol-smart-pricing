@@ -360,13 +360,38 @@ async def create_product_v2(payload: CreateCurtainProductRequestV2, db: Session 
         elif pleat_val == "1x2": pleat_val = "Seyrek (1 x 2)"
         elif pleat_val == "pilesiz": pleat_val = "Pilesiz (1 x 1)"
 
+        # Kategoriye Göre Resmi Trendyol V2 Nitelik Listesi
+        cat_id = payload.category_id or 895
+        if cat_id == 1849: # Stor & Zebra Perde
+            attributes_payload = [
+                {"attributeId": 338, "customAttributeValue": f"{int(w)} x {int(h)}"}, # Beden
+                {"attributeId": 34, "customAttributeValue": "Stor Perde"}, # Tip
+                {"attributeId": 14, "customAttributeValue": payload.material or "Polyester"}, # Materyal
+                {"attributeId": 33, "customAttributeValue": payload.pattern or "Düz"}, # Desen
+                {"attributeId": 1192, "customAttributeValue": "TR"}, # Menşei
+                {"attributeId": 348, "customAttributeValue": payload.color or "Ekru"}, # Web Color
+                {"attributeId": 47, "customAttributeValue": payload.color or "Ekru"} # Renk
+            ]
+        else: # Tül Perde (895), Fon Perde (1848) ve Karartma
+            attributes_payload = [
+                {"attributeId": 92, "customAttributeValue": f"{int(w)} x {int(h)}"}, # Boyut/Ebat (Varyant Belirleyici)
+                {"attributeId": 14, "customAttributeValue": payload.material or "Polyester"}, # Materyal
+                {"attributeId": 1101, "customAttributeValue": pleat_val}, # Pile
+                {"attributeId": 18, "customAttributeValue": "1"}, # Parça Sayısı
+                {"attributeId": 258, "customAttributeValue": payload.hanging_type or "Kornişli"}, # Takma Şekli
+                {"attributeId": 33, "customAttributeValue": payload.pattern or "Düz"}, # Desen
+                {"attributeId": 1192, "customAttributeValue": "TR"}, # Menşei
+                {"attributeId": 348, "customAttributeValue": payload.color or "Ekru"}, # Web Color
+                {"attributeId": 47, "customAttributeValue": payload.color or "Ekru"} # Renk
+            ]
+
         # Resmi Trendyol V2 Item Şeması
         v2_item = {
             "barcode": barcode,
             "title": f"{payload.title} {size_lbl}",
             "productMainId": clean_model_code,
             "brandId": payload.brand_id,
-            "categoryId": payload.category_id or 895,
+            "categoryId": cat_id,
             "quantity": stock_q,
             "stockCode": barcode,
             "dimensionalWeight": payload.dimensional_weight or 2.0,
@@ -378,17 +403,7 @@ async def create_product_v2(payload: CreateCurtainProductRequestV2, db: Session 
             "cargoCompanyId": payload.cargo_company_id or 10,
             "deliveryDuration": payload.delivery_duration or 2,
             "images": image_list,
-            "attributes": [
-                {"attributeId": 92, "customAttributeValue": f"{int(w)} x {int(h)}"}, # Boyut/Ebat (Varyant Belirleyici)
-                {"attributeId": 14, "customAttributeValue": payload.material or "Polyester"}, # Materyal
-                {"attributeId": 1101, "customAttributeValue": pleat_val}, # Pile
-                {"attributeId": 18, "customAttributeValue": "1"}, # Parça Sayısı
-                {"attributeId": 258, "customAttributeValue": payload.hanging_type or "Kornişli"}, # Takma Şekli
-                {"attributeId": 33, "customAttributeValue": payload.pattern or "Düz"}, # Desen
-                {"attributeId": 1192, "customAttributeValue": "TR"}, # Menşei
-                {"attributeId": 348, "customAttributeValue": payload.color or "Ekru"}, # Web Color
-                {"attributeId": 47, "customAttributeValue": payload.color or "Ekru"} # Renk
-            ]
+            "attributes": attributes_payload
         }
         v2_items.append(v2_item)
 
